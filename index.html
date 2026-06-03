@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stock Coach – portfolio tracker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Stock Coach</p>
+      <h1>Sledování akcií a portfolia</h1>
+      <p class="subtitle">Jednoduchá webová aplikace ve stylu Nutrition Coach. Ceny se obnovují automaticky každou minutu.</p>
+    </div>
+    <div class="status-card">
+      <span id="marketStatus">Připraveno</span>
+      <strong id="lastUpdate">—</strong>
+      <small>Data: Stooq CSV / demo fallback</small>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel form-panel">
+      <h2>Přidat instrument</h2>
+      <form id="stockForm">
+        <label>Symbol
+          <input id="symbol" placeholder="AAPL.US, MSFT.US, NVDA.US, CEZ.CZ" required />
+        </label>
+        <label>Název
+          <input id="name" placeholder="Apple, Microsoft..." />
+        </label>
+        <div class="grid-two">
+          <label>Počet kusů
+            <input id="quantity" type="number" step="0.0001" min="0" placeholder="10" required />
+          </label>
+          <label>Nákupní cena / kus
+            <input id="buyPrice" type="number" step="0.0001" min="0" placeholder="180" required />
+          </label>
+        </div>
+        <label>Měna
+          <select id="currency">
+            <option value="USD">USD</option>
+            <option value="CZK">CZK</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </label>
+        <button type="submit">Přidat do portfolia</button>
+      </form>
+
+      <div class="tips">
+        <h3>Příklady symbolů</h3>
+        <p>USA akcie často používej se suffixem <b>.US</b>: AAPL.US, MSFT.US, NVDA.US, TSLA.US. Indexy např. ^SPX.</p>
+      </div>
+    </section>
+
+    <section class="dashboard">
+      <div class="cards">
+        <article class="metric">
+          <span>Hodnota portfolia</span>
+          <strong id="portfolioValue">—</strong>
+        </article>
+        <article class="metric">
+          <span>Investováno</span>
+          <strong id="investedValue">—</strong>
+        </article>
+        <article class="metric">
+          <span>Zisk / ztráta</span>
+          <strong id="profitValue">—</strong>
+        </article>
+      </div>
+
+      <section class="panel">
+        <div class="section-head">
+          <h2>Moje portfolio</h2>
+          <div class="actions">
+            <button id="refreshBtn" class="secondary">Obnovit nyní</button>
+            <button id="exportBtn" class="secondary">Export JSON</button>
+            <label class="import-label">Import JSON<input id="importInput" type="file" accept="application/json" hidden /></label>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Symbol</th><th>Název</th><th>Kusů</th><th>Nákup</th><th>Aktuální</th><th>Hodnota</th><th>P/L</th><th>Akce</th>
+              </tr>
+            </thead>
+            <tbody id="portfolioBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Mini graf portfolia</h2>
+        <canvas id="portfolioChart" height="110"></canvas>
+        <p class="note">Graf ukládá lokální historii hodnoty při každé aktualizaci.</p>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <p>První verze: statická appka bez přihlášení. Data se ukládají do localStorage v tomto zařízení.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
