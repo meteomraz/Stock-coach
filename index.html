@@ -3,84 +3,83 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stock Coach Pro</title>
+  <title>Stock Coach Pro v3</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <div class="app-shell">
-    <header class="hero">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Stock Coach Pro v3</p>
+      <h1>Polovodiče / AI portfolio</h1>
+      <p class="muted">Aktuální ceny každou minutu, roční historie načítaná postupně a bez tickerů .US.</p>
+    </div>
+    <div class="status" id="status">Připraveno</div>
+  </header>
+
+  <main class="shell">
+    <section class="card grid2">
       <div>
-        <p class="eyebrow">Stock Coach Pro</p>
-        <h1>Polovodiče & IT akcie</h1>
-        <p class="muted">Aktuální ceny, denní historie za 1 rok, technická analýza a nákupní watchlist.</p>
-      </div>
-      <div class="api-card">
-        <label for="apiKey">Finnhub API key</label>
-        <div class="api-row">
-          <input id="apiKey" type="password" placeholder="Vlož API key" />
-          <button id="saveApiKey">Uložit</button>
+        <label>Finnhub API key</label>
+        <div class="row">
+          <input id="apiKey" type="password" placeholder="Vlož API key z finnhub.io" />
+          <button id="saveKey">Uložit</button>
         </div>
-        <small>Klíč se ukládá pouze do tohoto prohlížeče.</small>
+        <small class="muted">Klíč se ukládá jen do localStorage v tomto prohlížeči.</small>
       </div>
-    </header>
-
-    <section class="stats-grid">
-      <article><span>Hodnota portfolia</span><strong id="portfolioValue">–</strong></article>
-      <article><span>Denní P/L</span><strong id="dailyPL">–</strong></article>
-      <article><span>Roční výnos watchlistu</span><strong id="avgYearReturn">–</strong></article>
-      <article><span>Poslední aktualizace</span><strong id="lastUpdate">–</strong></article>
+      <div class="actions">
+        <button id="loadDefault">Načíst 20 polovodičů</button>
+        <button id="refreshQuotes">Obnovit ceny</button>
+        <button id="loadAllHistory">Načíst roční historii</button>
+        <button id="exportJson">Export JSON</button>
+      </div>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <h2>Přidat akcii</h2>
-          <p class="muted">Ticker zadávej ve tvaru např. NVDA, AMD, AVGO, TSM, ASML.</p>
-        </div>
-      </div>
-      <form id="addStockForm" class="form-grid">
-        <input id="newSymbol" placeholder="Ticker" required />
+    <section class="cards3">
+      <div class="metric"><span>Watchlist</span><strong id="count">0</strong></div>
+      <div class="metric"><span>Top příležitost</span><strong id="topPick">–</strong></div>
+      <div class="metric"><span>Poslední refresh</span><strong id="lastRefresh">–</strong></div>
+    </section>
+
+    <section class="card">
+      <h2>Přidat akcii</h2>
+      <div class="formgrid">
+        <input id="newSymbol" placeholder="Ticker např. NVDA, AMD, AVGO" />
         <input id="newName" placeholder="Název / segment" />
-        <input id="newShares" type="number" min="0" step="0.0001" placeholder="Kusů" />
-        <input id="newBuyPrice" type="number" min="0" step="0.01" placeholder="Nákupní cena USD" />
-        <button type="submit">Přidat + načíst rok</button>
-      </form>
+        <input id="newQty" type="number" min="0" step="0.0001" placeholder="Kusů" />
+        <input id="newBuy" type="number" min="0" step="0.01" placeholder="Nákupní cena" />
+        <button id="addStock">Přidat</button>
+      </div>
+      <small class="muted">Ticker se automaticky převede na formát bez .US, protože Finnhub pro US akcie používá NVDA, AMD, AVGO…</small>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <div>
-          <h2>Watchlist</h2>
-          <p class="muted">Ceny se obnovují každou minutu. Denní historie za 1 rok se načítá tlačítkem níže nebo při přidání akcie.</p>
-        </div>
-        <div class="actions">
-          <button id="loadDefault">Načíst 20 polovodičů</button>
-          <button id="refreshNow">Obnovit ceny</button>
-          <button id="loadHistory">Načíst denní data za 1 rok</button>
-          <button id="exportJson">Export JSON</button>
-          <label class="import-btn">Import JSON<input id="importJson" type="file" accept="application/json" hidden /></label>
-        </div>
-      </div>
-      <div class="table-wrap">
+    <section class="card">
+      <h2>Akcie</h2>
+      <div class="tablewrap">
         <table>
-          <thead><tr><th>Symbol</th><th>Název</th><th>Cena</th><th>Dnes</th><th>1M</th><th>3M</th><th>1R</th><th>Od 52W high</th><th>SMA 50/200</th><th>Signál</th><th>Akce</th></tr></thead>
-          <tbody id="stockTable"></tbody>
+          <thead>
+            <tr>
+              <th>Symbol</th><th>Název</th><th>Cena</th><th>Dnes</th><th>1M</th><th>3M</th><th>1R</th><th>Od 52W high</th><th>SMA50/200</th><th>Skóre</th><th>Akce</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
         </table>
       </div>
     </section>
 
-    <section class="grid-two">
-      <article class="panel">
-        <div class="panel-head"><h2>Graf vybrané akcie</h2><span id="selectedSymbol" class="pill">–</span></div>
-        <canvas id="priceChart" height="220"></canvas>
-      </article>
-      <article class="panel">
-        <h2>Nejzajímavější vývoje / příležitosti</h2>
-        <div id="opportunities" class="opportunities"></div>
-      </article>
+    <section class="card">
+      <h2>Graf</h2>
+      <p id="chartTitle" class="muted">Klikni na „Graf“ u akcie.</p>
+      <canvas id="chart" height="120"></canvas>
     </section>
-  </div>
+
+    <section class="card">
+      <h2>Nákupní příležitosti</h2>
+      <div id="opportunities" class="opps"></div>
+    </section>
+  </main>
+
+  <footer>Nejde o investiční doporučení. Slouží jako analytický dashboard.</footer>
   <script src="app.js"></script>
 </body>
 </html>
