@@ -1,17 +1,59 @@
-const STORAGE_KEY = 'stockCoachPortfolio.v1';
-const HISTORY_KEY = 'stockCoachHistory.v1';
+const STORAGE_KEY = 'stockCoachPortfolio.v2';
+const HISTORY_KEY = 'stockCoachHistory.v2';
 const REFRESH_MS = 60_000;
 
 const $ = (id) => document.getElementById(id);
+
+const DEFAULT_SEMICONDUCTORS = [
+  { symbol:'NVDA.US', name:'Nvidia', segment:'AI GPU / datacentra' },
+  { symbol:'AVGO.US', name:'Broadcom', segment:'AI akcelerátory / síťové čipy' },
+  { symbol:'AMD.US', name:'Advanced Micro Devices', segment:'CPU / GPU / AI' },
+  { symbol:'TSM.US', name:'Taiwan Semiconductor Manufacturing', segment:'foundry / výroba čipů' },
+  { symbol:'MU.US', name:'Micron Technology', segment:'paměti DRAM/NAND' },
+  { symbol:'INTC.US', name:'Intel', segment:'CPU / foundry' },
+  { symbol:'QCOM.US', name:'Qualcomm', segment:'mobilní a edge čipy' },
+  { symbol:'TXN.US', name:'Texas Instruments', segment:'analogové čipy' },
+  { symbol:'AMAT.US', name:'Applied Materials', segment:'výrobní zařízení' },
+  { symbol:'ARM.US', name:'Arm Holdings', segment:'IP architektura čipů' },
+  { symbol:'ASML.US', name:'ASML Holding', segment:'EUV litografie' },
+  { symbol:'LRCX.US', name:'Lam Research', segment:'výrobní zařízení' },
+  { symbol:'KLAC.US', name:'KLA Corporation', segment:'kontrola a metrologie' },
+  { symbol:'ADI.US', name:'Analog Devices', segment:'analog / mixed-signal' },
+  { symbol:'MRVL.US', name:'Marvell Technology', segment:'datacentra / networking' },
+  { symbol:'NXPI.US', name:'NXP Semiconductors', segment:'automotive / průmysl' },
+  { symbol:'ON.US', name:'ON Semiconductor', segment:'power / automotive' },
+  { symbol:'MCHP.US', name:'Microchip Technology', segment:'mikrokontroléry' },
+  { symbol:'MPWR.US', name:'Monolithic Power Systems', segment:'power management' },
+  { symbol:'GFS.US', name:'GlobalFoundries', segment:'foundry' }
+];
+
+function seedPortfolio(){
+  return DEFAULT_SEMICONDUCTORS.map(item => ({
+    id: crypto.randomUUID(),
+    symbol: item.symbol,
+    name: item.name,
+    segment: item.segment,
+    quantity: 0,
+    buyPrice: 0,
+    currency: 'USD',
+    lastPrice: null,
+    lastTime: null,
+    error: null
+  }));
+}
+
+function resetToSemiconductors(){
+  portfolio = seedPortfolio();
+  history = [];
+  save();
+  render();
+  refreshQuotes();
+}
+window.resetToSemiconductors = resetToSemiconductors;
+
 let portfolio = load(STORAGE_KEY, seedPortfolio());
 let history = load(HISTORY_KEY, []);
 
-function seedPortfolio(){
-  return [
-    { id: crypto.randomUUID(), symbol:'AAPL.US', name:'Apple', quantity:2, buyPrice:180, currency:'USD', lastPrice:null, lastTime:null },
-    { id: crypto.randomUUID(), symbol:'NVDA.US', name:'Nvidia', quantity:1, buyPrice:120, currency:'USD', lastPrice:null, lastTime:null }
-  ];
-}
 function load(key, fallback){ try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; } }
 function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolio)); localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-100))); }
 function money(value, currency='USD'){ return new Intl.NumberFormat('cs-CZ',{style:'currency',currency,maximumFractionDigits:2}).format(Number(value)||0); }
@@ -68,13 +110,17 @@ function render(){
     const buy = Number(item.buyPrice)||0;
     const value = price*qty;
     const cost = buy*qty;
-    const profit = value-cost;
+    const isHolding = qty > 0;
+    const profit = isHolding ? value-cost : 0;
     const profitPct = cost ? profit/cost*100 : 0;
     total += value; invested += cost;
     const tr = document.createElement('tr');
+    const priceCell = price ? money(price,item.currency) : '—';
+    const valueCell = isHolding ? money(value,item.currency) : '<span class="muted">watchlist</span>';
+    const profitCell = isHolding ? `<b>${money(profit,item.currency)}</b><br><small>${pct(profitPct)}</small>` : '<span class="muted">—</span>';
     tr.innerHTML = `<td><b>${item.symbol}</b><br><small>${item.lastTime || '—'}${item.error ? ' · ' + item.error : ''}</small></td>
-      <td>${item.name || '—'}</td><td>${qty}</td><td>${money(buy,item.currency)}</td><td>${money(price,item.currency)}</td>
-      <td>${money(value,item.currency)}</td><td class="${profit>=0?'good':'bad'}"><b>${money(profit,item.currency)}</b><br><small>${pct(profitPct)}</small></td>
+      <td>${item.name || '—'}<br><small>${item.segment || ''}</small></td><td>${qty}</td><td>${buy ? money(buy,item.currency) : '<span class="muted">—</span>'}</td><td>${priceCell}</td>
+      <td>${valueCell}</td><td class="${profit>=0?'good':'bad'}">${profitCell}</td>
       <td><button class="secondary delete" onclick="removeItem('${item.id}')">Smazat</button></td>`;
     body.appendChild(tr);
   });
@@ -95,6 +141,7 @@ $('stockForm').addEventListener('submit', e=>{
   e.target.reset(); save(); render(); refreshQuotes();
 });
 $('refreshBtn').addEventListener('click', refreshQuotes);
+$('loadSemisBtn').addEventListener('click', resetToSemiconductors);
 $('exportBtn').addEventListener('click', ()=>{
   const blob = new Blob([JSON.stringify(portfolio,null,2)], {type:'application/json'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'stock-coach-portfolio.json'; a.click(); URL.revokeObjectURL(a.href);
