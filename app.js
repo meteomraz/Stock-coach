@@ -1,136 +1,126 @@
 const DEFAULT_STOCKS = [
-  {symbol:'NVDA', name:'Nvidia', segment:'AI GPU / datacentra', shares:0, buyPrice:0},
-  {symbol:'AVGO', name:'Broadcom', segment:'AI akcelerátory / síťové čipy', shares:0, buyPrice:0},
-  {symbol:'AMD', name:'Advanced Micro Devices', segment:'CPU / GPU / AI', shares:0, buyPrice:0},
-  {symbol:'TSM', name:'Taiwan Semiconductor Manufacturing', segment:'foundry / výroba čipů', shares:0, buyPrice:0},
-  {symbol:'MU', name:'Micron Technology', segment:'paměti DRAM/NAND', shares:0, buyPrice:0},
-  {symbol:'INTC', name:'Intel', segment:'CPU / foundry', shares:0, buyPrice:0},
-  {symbol:'QCOM', name:'Qualcomm', segment:'mobilní a edge čipy', shares:0, buyPrice:0},
-  {symbol:'TXN', name:'Texas Instruments', segment:'analogové čipy', shares:0, buyPrice:0},
-  {symbol:'AMAT', name:'Applied Materials', segment:'výrobní zařízení', shares:0, buyPrice:0},
-  {symbol:'ARM', name:'Arm Holdings', segment:'IP architektura čipů', shares:0, buyPrice:0},
-  {symbol:'ASML', name:'ASML Holding', segment:'EUV litografie', shares:0, buyPrice:0},
-  {symbol:'LRCX', name:'Lam Research', segment:'výrobní zařízení', shares:0, buyPrice:0},
-  {symbol:'KLAC', name:'KLA Corporation', segment:'kontrola a metrologie', shares:0, buyPrice:0},
-  {symbol:'ADI', name:'Analog Devices', segment:'analog / mixed-signal', shares:0, buyPrice:0},
-  {symbol:'MRVL', name:'Marvell Technology', segment:'datacentra / networking', shares:0, buyPrice:0},
-  {symbol:'NXPI', name:'NXP Semiconductors', segment:'automotive / průmysl', shares:0, buyPrice:0},
-  {symbol:'ON', name:'ON Semiconductor', segment:'power / automotive', shares:0, buyPrice:0},
-  {symbol:'MCHP', name:'Microchip Technology', segment:'mikrokontroléry', shares:0, buyPrice:0},
-  {symbol:'MPWR', name:'Monolithic Power Systems', segment:'power management', shares:0, buyPrice:0},
-  {symbol:'GFS', name:'GlobalFoundries', segment:'foundry', shares:0, buyPrice:0}
-];
+  ['NVDA','Nvidia','AI GPU / datacentra'],['AVGO','Broadcom','AI akcelerátory / síťové čipy'],['AMD','Advanced Micro Devices','CPU / GPU / AI'],['TSM','Taiwan Semiconductor','foundry / výroba čipů'],['MU','Micron Technology','paměti DRAM/NAND'],['INTC','Intel','CPU / foundry'],['QCOM','Qualcomm','mobilní a edge čipy'],['TXN','Texas Instruments','analogové čipy'],['AMAT','Applied Materials','výrobní zařízení'],['ARM','Arm Holdings','IP architektura čipů'],['ASML','ASML Holding','EUV litografie'],['LRCX','Lam Research','výrobní zařízení'],['KLAC','KLA Corporation','kontrola a metrologie'],['ADI','Analog Devices','analog / mixed-signal'],['MRVL','Marvell Technology','datacentra / networking'],['NXPI','NXP Semiconductors','automotive / průmysl'],['ON','ON Semiconductor','power / automotive'],['MCHP','Microchip Technology','mikrokontroléry'],['MPWR','Monolithic Power','power management'],['GFS','GlobalFoundries','foundry']
+].map(([symbol,name,segment])=>({symbol,name,segment,shares:0,buyPrice:0,quote:null,history:[],metrics:null,status:'waiting'}));
 
-const LS_STOCKS = 'stockCoachPro.stocks';
-const LS_KEY = 'stockCoachPro.finnhubKey';
-let stocks = loadStocks();
-let priceHistory = {};
-let selectedSymbol = 'NVDA';
+let stocks = JSON.parse(localStorage.getItem('stockCoachStocks') || 'null') || DEFAULT_STOCKS;
+let apiKey = localStorage.getItem('finnhubApiKey') || '';
+let selected = stocks[0]?.symbol || null;
 let chart;
 
 const $ = id => document.getElementById(id);
-const money = n => Number.isFinite(n) ? n.toLocaleString('cs-CZ',{style:'currency',currency:'USD'}) : '—';
-const pct = n => Number.isFinite(n) ? `${n>=0?'+':''}${n.toFixed(2)} %` : '—';
+$('apiKey').value = apiKey;
 
-function loadStocks(){
-  try { return JSON.parse(localStorage.getItem(LS_STOCKS)) || structuredClone(DEFAULT_STOCKS); }
-  catch { return structuredClone(DEFAULT_STOCKS); }
-}
-function saveStocks(){ localStorage.setItem(LS_STOCKS, JSON.stringify(stocks)); }
-function getKey(){ return localStorage.getItem(LS_KEY) || ''; }
-function setStatus(text){ $('marketState').textContent = text; }
-function setLastUpdate(){ $('lastUpdate').textContent = new Date().toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+function save(){localStorage.setItem('stockCoachStocks', JSON.stringify(stocks));}
+function fmt(n,d=2){return Number.isFinite(n)?n.toLocaleString('cs-CZ',{minimumFractionDigits:d,maximumFractionDigits:d}):'–'}
+function cls(n){return n>0?'green':n<0?'red':''}
+function daysAgoUnix(days){return Math.floor((Date.now()-days*86400000)/1000)}
+function nowUnix(){return Math.floor(Date.now()/1000)}
 
-async function fetchQuote(symbol){
-  const token = getKey();
-  if(!token) throw new Error('Chybí Finnhub API key');
-  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(token)}`;
-  const res = await fetch(url);
-  if(!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if(!data || !Number.isFinite(data.c) || data.c <= 0) throw new Error(data.error || 'Bez ceny');
-  return { price:data.c, change:data.d ?? null, changePct:data.dp ?? null, previousClose:data.pc ?? null, high:data.h ?? null, low:data.l ?? null };
+async function finnhub(path){
+  if(!apiKey) throw new Error('Chybí Finnhub API key');
+  const url = `https://finnhub.io/api/v1/${path}${path.includes('?')?'&':'?'}token=${encodeURIComponent(apiKey)}`;
+  const r = await fetch(url);
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
 }
 
-async function refreshAll(){
-  if(!getKey()) { setStatus('Vlož API klíč'); render(); return; }
-  setStatus('Načítám ceny…'); $('loadingText').textContent = 'načítám…';
-  let ok = 0, fail = 0;
-  for(const stock of stocks){
-    try{
-      const q = await fetchQuote(stock.symbol);
-      Object.assign(stock, q, {error:null, updatedAt:Date.now()});
-      ok++;
-      if(!priceHistory[stock.symbol]) priceHistory[stock.symbol] = [];
-      priceHistory[stock.symbol].push({x:new Date(), y:q.price});
-      priceHistory[stock.symbol] = priceHistory[stock.symbol].slice(-120);
-    }catch(e){ stock.error = e.message; fail++; }
-    render();
-    await new Promise(r=>setTimeout(r, 250));
-  }
-  saveStocks(); setLastUpdate(); setStatus(fail ? `Načteno ${ok}, chyba ${fail}` : 'Aktuální'); $('loadingText').textContent = '';
+async function loadQuote(stock){
+  stock.status = 'loading quote'; renderTable();
+  const q = await finnhub(`quote?symbol=${encodeURIComponent(stock.symbol)}`);
+  if(!q || !q.c) throw new Error('Bez ceny');
+  stock.quote = q; stock.status='ok';
 }
 
-function render(){
-  $('stockCount').textContent = stocks.length;
-  const body = $('stockTable'); body.innerHTML = '';
-  let total = 0, cost = 0, dailyWeighted = 0, priced = 0;
-  for(const s of stocks){
-    const shares = Number(s.shares)||0, buy = Number(s.buyPrice)||0;
-    const value = shares * (s.price||0), spent = shares * buy, pl = value - spent;
-    total += value; cost += spent;
-    if(Number.isFinite(s.changePct)){ dailyWeighted += s.changePct; priced++; }
-    const tr = document.createElement('tr'); tr.onclick = () => { selectedSymbol = s.symbol; renderChart(); };
-    tr.innerHTML = `
-      <td><span class="symbol">${s.symbol}</span>${s.error?`<span class="sub negative">${s.error}</span>`:''}</td>
-      <td>${s.name}<span class="sub">${s.segment||''}</span></td>
-      <td contenteditable="true" data-field="shares" data-symbol="${s.symbol}">${shares}</td>
-      <td contenteditable="true" data-field="buyPrice" data-symbol="${s.symbol}">${buy||'—'}</td>
-      <td><strong>${money(s.price)}</strong><span class="sub">H ${money(s.high)} / L ${money(s.low)}</span></td>
-      <td class="${(s.changePct||0)>=0?'positive':'negative'}">${pct(s.changePct)}<span class="sub">${money(s.change)}</span></td>
-      <td>${shares ? money(value) : '<span class="pill">watchlist</span>'}</td>
-      <td class="${pl>=0?'positive':'negative'}">${shares ? money(pl) : '—'}</td>
-      <td><button class="delete" data-delete="${s.symbol}">Smazat</button></td>`;
-    body.appendChild(tr);
-  }
-  body.querySelectorAll('[contenteditable]').forEach(cell=> cell.onblur = e => {
-    const s = stocks.find(x=>x.symbol===e.target.dataset.symbol); if(!s) return;
-    s[e.target.dataset.field] = Number(String(e.target.textContent).replace(',','.')) || 0; saveStocks(); render();
-  });
-  body.querySelectorAll('[data-delete]').forEach(btn=> btn.onclick = e => { e.stopPropagation(); stocks = stocks.filter(s=>s.symbol!==btn.dataset.delete); saveStocks(); render(); });
-  $('portfolioValue').textContent = money(total);
-  const pl = total - cost; $('portfolioPnL').textContent = `${money(pl)} ${cost ? `(${pct(pl/cost*100)})` : ''}`; $('portfolioPnL').className = pl>=0?'positive':'negative';
-  $('dayChange').textContent = priced ? pct(dailyWeighted/priced) : '—'; $('dayChange').className = dailyWeighted>=0?'positive':'negative';
-  renderSignals(); renderChart();
+async function loadHistory(stock){
+  stock.status = 'loading history'; renderTable();
+  const data = await finnhub(`stock/candle?symbol=${encodeURIComponent(stock.symbol)}&resolution=D&from=${daysAgoUnix(370)}&to=${nowUnix()}`);
+  if(data.s !== 'ok') throw new Error(data.s || 'Historie není dostupná');
+  stock.history = data.t.map((t,i)=>({t, open:data.o[i], high:data.h[i], low:data.l[i], close:data.c[i], volume:data.v[i]}));
+  stock.metrics = calcMetrics(stock.history);
+  stock.status='ok';
 }
 
-function renderSignals(){
-  const priced = stocks.filter(s=>Number.isFinite(s.changePct));
-  if(!priced.length){ $('signals').textContent = 'Čekám na data.'; return; }
-  const best = [...priced].sort((a,b)=>b.changePct-a.changePct)[0];
-  const worst = [...priced].sort((a,b)=>a.changePct-b.changePct)[0];
-  $('signals').innerHTML = `<div class="signal-row"><span>Největší růst</span><strong class="positive">${best.symbol} ${pct(best.changePct)}</strong></div><div class="signal-row"><span>Největší propad</span><strong class="negative">${worst.symbol} ${pct(worst.changePct)}</strong></div>`;
+async function refreshQuotes(){
+  if(!apiKey) return alert('Nejdřív vlož Finnhub API key.');
+  for(const s of stocks){try{await loadQuote(s)}catch(e){s.status=e.message}}
+  $('lastUpdate').textContent = new Date().toLocaleTimeString('cs-CZ');
+  save(); renderAll();
+}
+
+async function refreshHistory(){
+  if(!apiKey) return alert('Nejdřív vlož Finnhub API key.');
+  for(const s of stocks){try{await loadHistory(s)}catch(e){s.status=e.message}}
+  save(); renderAll();
+}
+
+function calcMetrics(h){
+  if(!h || h.length<30) return null;
+  const closes = h.map(x=>x.close), last=closes.at(-1);
+  const ret = n => closes.length>n ? (last/closes.at(-1-n)-1)*100 : null;
+  const sma = n => closes.length>=n ? closes.slice(-n).reduce((a,b)=>a+b,0)/n : null;
+  const high52 = Math.max(...h.map(x=>x.high));
+  const low52 = Math.min(...h.map(x=>x.low));
+  const rets = closes.slice(1).map((c,i)=>Math.log(c/closes[i]));
+  const mean = rets.reduce((a,b)=>a+b,0)/rets.length;
+  const vol = Math.sqrt(rets.reduce((a,b)=>a+(b-mean)**2,0)/(rets.length-1))*Math.sqrt(252)*100;
+  const sma50=sma(50), sma200=sma(200), ytd=ret(252), m1=ret(21), m3=ret(63);
+  const dd = (last/high52-1)*100;
+  let signal='Neutrální'; let score=0;
+  if(sma50 && sma200 && sma50>sma200){score+=2; signal='Uptrend'}
+  if(m1!==null && m1<-8 && dd<-15){score+=2; signal='Dip ve sledování'}
+  if(m3!==null && m3>10 && dd>-10){score+=2; signal='Silné momentum'}
+  if(sma50 && last<sma50 && sma200 && last>sma200){score+=1; signal='Pullback k trendu'}
+  if(sma200 && last<sma200){score-=2; signal='Pod SMA200 / riziko'}
+  return {last, high52, low52, ret1m:m1, ret3m:m3, ret1y:ytd, drawdown:dd, sma50, sma200, vol, signal, score};
+}
+
+function renderStats(){
+  let value=0, daily=0, year=[];
+  stocks.forEach(s=>{ if(s.quote){value += (s.shares||0)*s.quote.c; daily += (s.shares||0)*(s.quote.d||0);} if(s.metrics?.ret1y!=null) year.push(s.metrics.ret1y); });
+  $('portfolioValue').textContent = value?`${fmt(value)} US$`:'–';
+  $('dailyPL').textContent = daily?`${fmt(daily)} US$`: '–'; $('dailyPL').className = cls(daily);
+  $('avgYearReturn').textContent = year.length?`${fmt(year.reduce((a,b)=>a+b,0)/year.length)} %`:'–';
+}
+
+function renderTable(){
+  $('stockTable').innerHTML = stocks.map(s=>{
+    const q=s.quote, m=s.metrics;
+    return `<tr onclick="selectStock('${s.symbol}')"><td><b>${s.symbol}</b><small>${s.status||''}</small></td><td>${s.name||''}<small>${s.segment||''}</small></td><td>${q?fmt(q.c):'–'}</td><td class="${cls(q?.dp)}">${q?fmt(q.dp)+' %':'–'}</td><td class="${cls(m?.ret1m)}">${m?.ret1m!=null?fmt(m.ret1m)+' %':'–'}</td><td class="${cls(m?.ret3m)}">${m?.ret3m!=null?fmt(m.ret3m)+' %':'–'}</td><td class="${cls(m?.ret1y)}">${m?.ret1y!=null?fmt(m.ret1y)+' %':'–'}</td><td class="${cls(m?.drawdown)}">${m?.drawdown!=null?fmt(m.drawdown)+' %':'–'}</td><td>${m?.sma50&&m?.sma200?fmt(m.sma50)+' / '+fmt(m.sma200):'–'}</td><td><span class="pill">${m?.signal||'–'}</span></td><td><button class="ghost" onclick="event.stopPropagation(); loadOneHistory('${s.symbol}')">1R</button> <button class="danger" onclick="event.stopPropagation(); removeStock('${s.symbol}')">Smazat</button></td></tr>`
+  }).join('');
 }
 
 function renderChart(){
-  const s = stocks.find(x=>x.symbol===selectedSymbol) || stocks[0]; if(!s) return;
-  $('chartTitle').textContent = `${s.symbol} – ${s.name}`;
-  const hist = priceHistory[s.symbol] || (s.price ? [{x:new Date(),y:s.price}] : []);
-  const labels = hist.map(p=>p.x.toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}));
-  const data = hist.map(p=>p.y);
+  const s=stocks.find(x=>x.symbol===selected); $('selectedSymbol').textContent=s?.symbol||'–';
+  if(!s?.history?.length) return;
+  const labels=s.history.map(x=>new Date(x.t*1000).toLocaleDateString('cs-CZ')); const data=s.history.map(x=>x.close);
   if(chart) chart.destroy();
-  chart = new Chart($('stockChart'), { type:'line', data:{labels, datasets:[{label:s.symbol, data, tension:.35}]}, options:{plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#8fa0b9'}, grid:{color:'rgba(255,255,255,.06)'}}, y:{ticks:{color:'#8fa0b9'}, grid:{color:'rgba(255,255,255,.06)'}}}} });
+  chart = new Chart($('priceChart'), {type:'line', data:{labels,datasets:[{label:s.symbol,data,tension:.25,pointRadius:0}]}, options:{responsive:true,plugins:{legend:{labels:{color:'#eef5ff'}}},scales:{x:{ticks:{color:'#91a3ba',maxTicksLimit:8},grid:{color:'rgba(145,163,186,.12)'}},y:{ticks:{color:'#91a3ba'},grid:{color:'rgba(145,163,186,.12)'}}}}});
 }
 
-$('apiKey').value = getKey();
-$('saveKeyBtn').onclick = () => { localStorage.setItem(LS_KEY, $('apiKey').value.trim()); refreshAll(); };
-$('clearKeyBtn').onclick = () => { localStorage.removeItem(LS_KEY); $('apiKey').value=''; render(); setStatus('Klíč smazán'); };
-$('refreshBtn').onclick = refreshAll;
-$('resetBtn').onclick = () => { stocks = structuredClone(DEFAULT_STOCKS); saveStocks(); render(); refreshAll(); };
-$('exportBtn').onclick = () => { const blob = new Blob([JSON.stringify({stocks},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='stock-coach-portfolio.json'; a.click(); URL.revokeObjectURL(a.href); };
-$('importInput').onchange = async e => { const file=e.target.files[0]; if(!file)return; const txt=await file.text(); const data=JSON.parse(txt); stocks=data.stocks||data; saveStocks(); render(); refreshAll(); };
-$('addForm').onsubmit = e => { e.preventDefault(); const sym=$('symbolInput').value.trim().toUpperCase(); if(!sym)return; stocks.push({symbol:sym,name:$('nameInput').value.trim()||sym,segment:'vlastní titul',shares:Number($('sharesInput').value)||0,buyPrice:Number($('buyInput').value)||0}); saveStocks(); e.target.reset(); render(); refreshAll(); };
+function renderOpps(){
+  const ranked = stocks.filter(s=>s.metrics).sort((a,b)=>(b.metrics.score-a.metrics.score)||((b.metrics.ret3m||0)-(a.metrics.ret3m||0))).slice(0,6);
+  $('opportunities').innerHTML = ranked.length ? ranked.map(s=>{
+    const m=s.metrics; let txt='';
+    if(m.signal==='Dip ve sledování') txt='Silná akcie je níže od 52W maxima. Může dávat smysl sledovat potvrzení obratu, objemy a zprávy.';
+    else if(m.signal==='Pullback k trendu') txt='Cena je pod kratším průměrem, ale nad SMA200. To často značí korekci v delším trendu.';
+    else if(m.signal==='Silné momentum') txt='Výrazné 3M momentum a malý odstup od maxima. Spíš kandidát na trendové držení než levný nákup.';
+    else if(m.signal==='Uptrend') txt='SMA50 je nad SMA200. Trend je technicky zdravější, ale sleduj valuaci a výsledky.';
+    else txt='Bez jasné technické výhody. Počkej na lepší cenu nebo fundamentální impuls.';
+    return `<div class="opp"><strong>${s.symbol} <span class="tag">${m.signal}</span></strong><p>1M ${fmt(m.ret1m)} %, 3M ${fmt(m.ret3m)} %, 1R ${fmt(m.ret1y)} %, od 52W high ${fmt(m.drawdown)} %.</p><p>${txt}</p></div>`
+  }).join('') : '<p class="muted">Nejdřív načti denní data za 1 rok.</p>';
+}
 
-render();
-if(getKey()) refreshAll();
-setInterval(refreshAll, 60000);
+function renderAll(){renderStats();renderTable();renderChart();renderOpps();}
+window.selectStock=sym=>{selected=sym;renderChart();};
+window.removeStock=sym=>{stocks=stocks.filter(s=>s.symbol!==sym); if(selected===sym) selected=stocks[0]?.symbol; save(); renderAll();};
+window.loadOneHistory=async sym=>{const s=stocks.find(x=>x.symbol===sym); try{await loadHistory(s); save(); renderAll();}catch(e){s.status=e.message;renderAll();}};
+
+$('saveApiKey').onclick=()=>{apiKey=$('apiKey').value.trim();localStorage.setItem('finnhubApiKey',apiKey);alert('API key uložen.');};
+$('loadDefault').onclick=()=>{stocks=DEFAULT_STOCKS; selected='NVDA'; save(); renderAll();};
+$('refreshNow').onclick=refreshQuotes;
+$('loadHistory').onclick=refreshHistory;
+$('addStockForm').onsubmit=async e=>{e.preventDefault(); const symbol=$('newSymbol').value.trim().toUpperCase(); if(!symbol)return; if(stocks.some(s=>s.symbol===symbol)) return alert('Ticker už existuje.'); const s={symbol,name:$('newName').value.trim()||symbol,segment:'vlastní akcie',shares:+$('newShares').value||0,buyPrice:+$('newBuyPrice').value||0,quote:null,history:[],metrics:null,status:'new'}; stocks.unshift(s); selected=symbol; save(); renderAll(); if(apiKey){try{await loadQuote(s); await loadHistory(s);}catch(err){s.status=err.message;} save(); renderAll();} e.target.reset();};
+$('exportJson').onclick=()=>{const blob=new Blob([JSON.stringify(stocks,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='stock-coach-data.json'; a.click();};
+$('importJson').onchange=e=>{const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{stocks=JSON.parse(r.result); selected=stocks[0]?.symbol; save(); renderAll();}; r.readAsText(f);};
+setInterval(refreshQuotes,60000);
+renderAll();
