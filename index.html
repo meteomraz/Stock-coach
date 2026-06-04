@@ -3,107 +3,89 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stock Coach – portfolio tracker</title>
+  <title>Stock Coach Pro – Semiconductors</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <header class="hero">
-    <div>
-      <p class="eyebrow">Stock Coach</p>
-      <h1>Sledování polovodičových akcií</h1>
-      <p class="subtitle">Webová aplikace ve stylu Nutrition Coach. Po otevření načte 20 velkých a likvidních polovodičových akcií a ceny obnovuje každou minutu.</p>
-    </div>
-    <div class="status-card">
-      <span id="marketStatus">Připraveno</span>
-      <strong id="lastUpdate">—</strong>
-      <small>Data: Stooq CSV / fallback při výpadku</small>
-    </div>
-  </header>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Stock Coach Pro</p>
+        <h1>Polovodiče / AI akcie</h1>
+        <p class="subtitle">Watchlist 20 polovodičových firem, portfolio, minutová aktualizace a graf vývoje během otevřené relace.</p>
+      </div>
+      <div class="status-card">
+        <span id="marketState">Připraveno</span>
+        <strong id="lastUpdate">—</strong>
+        <small>Refresh: 60 s</small>
+      </div>
+    </header>
 
-  <main class="layout">
-    <section class="panel form-panel">
-      <h2>Přidat instrument</h2>
-      <form id="stockForm">
-        <label>Symbol
-          <input id="symbol" placeholder="AAPL.US, MSFT.US, NVDA.US, CEZ.CZ" required />
-        </label>
-        <label>Název
-          <input id="name" placeholder="Apple, Microsoft..." />
-        </label>
-        <div class="grid-two">
-          <label>Počet kusů
-            <input id="quantity" type="number" step="0.0001" min="0" placeholder="0 pro watchlist, např. 10 pro portfolio" required />
-          </label>
-          <label>Nákupní cena / kus
-            <input id="buyPrice" type="number" step="0.0001" min="0" placeholder="0 pro watchlist, např. 180 pro portfolio" required />
-          </label>
-        </div>
-        <label>Měna
-          <select id="currency">
-            <option value="USD">USD</option>
-            <option value="CZK">CZK</option>
-            <option value="EUR">EUR</option>
-          </select>
-        </label>
-        <button type="submit">Přidat do portfolia</button>
-      </form>
-
-      <div class="tips">
-        <h3>Příklady symbolů</h3>
-        <p>USA akcie používej se suffixem <b>.US</b>: NVDA.US, AMD.US, AVGO.US, TSM.US. Hodnota 0 ks znamená pouze watchlist.</p>
+    <section class="setup card">
+      <div>
+        <h2>Finnhub API klíč</h2>
+        <p>Pro aktuální ceny vlož vlastní bezplatný API klíč z Finnhubu. Klíč se uloží jen do tohoto prohlížeče.</p>
+      </div>
+      <div class="api-row">
+        <input id="apiKey" type="password" placeholder="Vlož Finnhub API key" autocomplete="off" />
+        <button id="saveKeyBtn">Uložit</button>
+        <button id="clearKeyBtn" class="ghost">Smazat klíč</button>
       </div>
     </section>
 
-    <section class="dashboard">
-      <div class="cards">
-        <article class="metric">
-          <span>Hodnota portfolia</span>
-          <strong id="portfolioValue">—</strong>
-        </article>
-        <article class="metric">
-          <span>Investováno</span>
-          <strong id="investedValue">—</strong>
-        </article>
-        <article class="metric">
-          <span>Zisk / ztráta</span>
-          <strong id="profitValue">—</strong>
-        </article>
-      </div>
+    <section class="metrics">
+      <article class="metric card"><span>Hodnota portfolia</span><strong id="portfolioValue">0,00 US$</strong></article>
+      <article class="metric card"><span>Zisk / ztráta</span><strong id="portfolioPnL">0,00 US$</strong></article>
+      <article class="metric card"><span>Denní změna watchlistu</span><strong id="dayChange">—</strong></article>
+      <article class="metric card"><span>Počet titulů</span><strong id="stockCount">20</strong></article>
+    </section>
 
-      <section class="panel">
-        <div class="section-head">
-          <h2>Polovodiče / portfolio</h2>
-          <div class="actions">
-            <button id="loadSemisBtn" class="secondary">Načíst 20 polovodičů</button>
-            <button id="refreshBtn" class="secondary">Obnovit nyní</button>
-            <button id="exportBtn" class="secondary">Export JSON</button>
-            <label class="import-label">Import JSON<input id="importInput" type="file" accept="application/json" hidden /></label>
-          </div>
+    <section class="card controls-card">
+      <div class="controls">
+        <button id="refreshBtn">Obnovit nyní</button>
+        <button id="resetBtn" class="ghost">Načíst základní watchlist</button>
+        <button id="exportBtn" class="ghost">Export JSON</button>
+        <label class="import-label">Import JSON <input id="importInput" type="file" accept="application/json" /></label>
+      </div>
+      <form id="addForm" class="add-form">
+        <input id="symbolInput" placeholder="Ticker, např. AAPL" />
+        <input id="nameInput" placeholder="Název / poznámka" />
+        <input id="sharesInput" type="number" step="0.0001" min="0" placeholder="Kusů" />
+        <input id="buyInput" type="number" step="0.01" min="0" placeholder="Nákup US$" />
+        <button>Přidat</button>
+      </form>
+    </section>
+
+    <section class="grid-main">
+      <div class="card table-card">
+        <div class="section-title">
+          <h2>Watchlist / portfolio</h2>
+          <span id="loadingText"></span>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Symbol</th><th>Název / segment</th><th>Kusů</th><th>Nákup</th><th>Aktuální cena</th><th>Hodnota</th><th>P/L</th><th>Akce</th>
+                <th>Symbol</th><th>Název</th><th>Kusů</th><th>Nákup</th><th>Aktuální</th><th>Dnes</th><th>Hodnota</th><th>P/L</th><th>Akce</th>
               </tr>
             </thead>
-            <tbody id="portfolioBody"></tbody>
+            <tbody id="stockTable"></tbody>
           </table>
         </div>
-      </section>
+      </div>
 
-      <section class="panel">
-        <h2>Mini graf portfolia</h2>
-        <canvas id="portfolioChart" height="110"></canvas>
-        <p class="note">Graf ukládá lokální historii hodnoty při každé aktualizaci.</p>
-      </section>
+      <aside class="card detail-card">
+        <h2 id="chartTitle">Vývoj relace</h2>
+        <p id="chartHint">Klikni na akcii v tabulce. Graf zatím ukazuje ceny nasbírané během otevřené stránky.</p>
+        <canvas id="stockChart" height="260"></canvas>
+        <div class="ai-box">
+          <h3>Rychlé signály</h3>
+          <div id="signals">Po načtení cen se zobrazí největší růst a propad.</div>
+        </div>
+      </aside>
     </section>
-  </main>
-
-  <footer>
-    <p>Verze 2: přednastavený watchlist polovodičů. Data se ukládají do localStorage v tomto zařízení.</p>
-  </footer>
-
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
