@@ -11,52 +11,45 @@ const symbols = [
 const outputDir = path.join(__dirname, "..", "data");
 const outputFile = path.join(outputDir, "history.json");
 
-function toUnix(date) {
-  return Math.floor(date.getTime() / 1000);
-}
-
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchStooq(symbol) {
-  const stooqSymbol = symbol.toLowerCase() + ".us";
-  const url = `https://stooq.com/q/d/l/?s=${stooqSymbol}&i=d`;
+async function fetchYahoo(symbol) {
+  const url =
+    `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}` +
+    `?range=1y&interval=1d&includeAdjustedClose=true&events=div%2Csplits`;
 
-  const response = await fetch(url);
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0"
+    }
+  });
 
   if (!response.ok) {
-    throw new Error(`Stooq HTTP ${response.status}`);
+    throw new Error(`Yahoo HTTP ${response.status}`);
   }
 
-  const text = await response.text();
+  const json = await response.json();
+  const result = json.chart?.result?.[0];
 
-  if (!text || !text.includes("Date")) {
-    throw new Error("Stooq returned invalid CSV");
+  if (!result) {
+    throw new Error("Yahoo returned no chart result");
   }
 
-  const rows = text.trim().split("\n").slice(1);
+  const timestamps = result.timestamp || [];
+  const quote = result.indicators?.quote?.[0] || {};
+  const adjclose = result.indicators?.adjclose?.[0]?.adjclose || [];
 
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-
-  const data = rows
-    .map(row => {
-      const [date, open, high, low, close, volume] = row.split(",");
-
-      return {
-        date,
-        open: Number(open),
-        high: Number(high),
-        low: Number(low),
-        close: Number(close),
-        volume: Number(volume)
-      };
-    })
-    .filter(item => new Date(item.date) >= oneYearAgo)
-    .filter(item => Number.isFinite(item.close));
-
-  return data;
+  return timestamps.map((ts, index) => ({
+    date: new Date(ts * 1000).toISOString().slice(0, 10),
+    open: quote.open?.[index] ?? null,
+    high: quote.high?.[index] ?? null,
+    low: quote.low?.[index] ?? null,
+    close: quote.close?.[index] ?? null,
+    adjClose: adjclose[index] ?? quote.close?.[index] ?? null,
+    volume: quote.volume?.[index] ?? null
+  })).filter(item => item.close !== null);
 }
 
 async function main() {
@@ -64,7 +57,7 @@ async function main() {
 
   const result = {
     generatedAt: new Date().toISOString(),
-    source: "stooq",
+    source: "yahoo-finance-chart",
     period: "1y",
     symbols: {}
   };
@@ -72,18 +65,17 @@ async function main() {
   for (const symbol of symbols) {
     try {
       console.log(`Downloading ${symbol}...`);
-      result.symbols[symbol] = await fetchStooq(symbol);
+      result.symbols[symbol] = await fetchYahoo(symbol);
       console.log(`${symbol}: ${result.symbols[symbol].length} records`);
     } catch (error) {
       console.error(`${symbol}: ${error.message}`);
       result.symbols[symbol] = [];
     }
 
-    await sleep(500);
+    await sleep(800);
   }
 
   fs.writeFileSync(outputFile, JSON.stringify(result, null, 2), "utf8");
-
   console.log(`Saved to ${outputFile}`);
 }
 
