@@ -1,34 +1,93 @@
-name: Update stock history
+const fs = require("fs");
+const path = require("path");
 
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "0 6 * * *"
+const symbols = [
+  "NVDA", "AVGO", "AMD", "TSM", "MU",
+  "INTC", "QCOM", "TXN", "AMAT", "ARM",
+  "ASML", "LRCX", "KLAC", "ADI", "MRVL",
+  "NXPI", "ON", "MCHP", "MPWR", "GFS"
+];
 
-permissions:
-  contents: write
+const outputDir = path.join(__dirname, "..", "data");
+const outputFile = path.join(outputDir, "history.json");
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+function toUnix(date) {
+  return Math.floor(date.getTime() / 1000);
+}
 
-jobs:
-  update-history:
-    runs-on: ubuntu-latest
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-    steps:
-      - uses: actions/checkout@v4
+async function fetchStooq(symbol) {
+  const stooqSymbol = symbol.toLowerCase() + ".us";
+  const url = `https://stooq.com/q/d/l/?s=${stooqSymbol}&i=d`;
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
+  const response = await fetch(url);
 
-      - name: Update history
-        run: node scripts/update-history.js
+  if (!response.ok) {
+    throw new Error(`Stooq HTTP ${response.status}`);
+  }
 
-      - name: Commit history
-        run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add data/history.json
-          git commit -m "Update stock history" || echo "No changes"
-          git push
+  const text = await response.text();
+
+  if (!text || !text.includes("Date")) {
+    throw new Error("Stooq returned invalid CSV");
+  }
+
+  const rows = text.trim().split("\n").slice(1);
+
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+
+  const data = rows
+    .map(row => {
+      const [date, open, high, low, close, volume] = row.split(",");
+
+      return {
+        date,
+        open: Number(open),
+        high: Number(high),
+        low: Number(low),
+        close: Number(close),
+        volume: Number(volume)
+      };
+    })
+    .filter(item => new Date(item.date) >= oneYearAgo)
+    .filter(item => Number.isFinite(item.close));
+
+  return data;
+}
+
+async function main() {
+  fs.mkdirSync(outputDir, { recursive: true });
+
+  const result = {
+    generatedAt: new Date().toISOString(),
+    source: "stooq",
+    period: "1y",
+    symbols: {}
+  };
+
+  for (const symbol of symbols) {
+    try {
+      console.log(`Downloading ${symbol}...`);
+      result.symbols[symbol] = await fetchStooq(symbol);
+      console.log(`${symbol}: ${result.symbols[symbol].length} records`);
+    } catch (error) {
+      console.error(`${symbol}: ${error.message}`);
+      result.symbols[symbol] = [];
+    }
+
+    await sleep(500);
+  }
+
+  fs.writeFileSync(outputFile, JSON.stringify(result, null, 2), "utf8");
+
+  console.log(`Saved to ${outputFile}`);
+}
+
+main().catch(error => {
+  console.error(error);
+  process.exit(1);
+});
