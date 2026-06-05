@@ -1,5 +1,27 @@
 {
-  "updatedAt": null,
+  "generatedAt": "2026-06-05T07:36:49.321Z",
   "source": "stooq",
-  "symbols": {}
+  "period": "1y",
+  "symbols": {
+    "NVDA": [],
+    "AVGO": [],
+    "AMD": [],
+    "TSM": [],
+    "MU": [],
+    "INTC": [],
+    "QCOM": [],
+    "TXN": [],
+    "AMAT": [],
+    "ARM": [],
+    "ASML": [],
+    "LRCX": [],
+    "KLAC": [],
+    "ADI": [],
+    "MRVL": [],
+    "NXPI": [],
+    "ON": [],
+    "MCHP": [],
+    "MPWR": [],
+    "GFS": []
+  }
 }
