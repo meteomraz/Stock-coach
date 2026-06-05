@@ -1,0 +1,22 @@
+[
+  {"symbol":"NVDA","name":"Nvidia","segment":"AI GPU / datacentra"},
+  {"symbol":"AVGO","name":"Broadcom","segment":"AI akcelerátory / síťové čipy"},
+  {"symbol":"AMD","name":"Advanced Micro Devices","segment":"CPU / GPU / AI"},
+  {"symbol":"TSM","name":"Taiwan Semiconductor Manufacturing","segment":"foundry / výroba čipů"},
+  {"symbol":"MU","name":"Micron Technology","segment":"paměti DRAM/NAND"},
+  {"symbol":"INTC","name":"Intel","segment":"CPU / foundry"},
+  {"symbol":"QCOM","name":"Qualcomm","segment":"mobilní a edge čipy"},
+  {"symbol":"TXN","name":"Texas Instruments","segment":"analogové čipy"},
+  {"symbol":"AMAT","name":"Applied Materials","segment":"výrobní zařízení"},
+  {"symbol":"ARM","name":"Arm Holdings","segment":"IP architektura čipů"},
+  {"symbol":"ASML","name":"ASML Holding","segment":"EUV litografie"},
+  {"symbol":"LRCX","name":"Lam Research","segment":"výrobní zařízení"},
+  {"symbol":"KLAC","name":"KLA Corporation","segment":"kontrola a metrologie"},
+  {"symbol":"ADI","name":"Analog Devices","segment":"analog / mixed-signal"},
+  {"symbol":"MRVL","name":"Marvell Technology","segment":"datacentra / networking"},
+  {"symbol":"NXPI","name":"NXP Semiconductors","segment":"automotive / průmysl"},
+  {"symbol":"ON","name":"ON Semiconductor","segment":"power / automotive"},
+  {"symbol":"MCHP","name":"Microchip Technology","segment":"mikrokontroléry"},
+  {"symbol":"MPWR","name":"Monolithic Power Systems","segment":"power management"},
+  {"symbol":"GFS","name":"GlobalFoundries","segment":"foundry"}
+]
