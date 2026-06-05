@@ -1,23 +1,31 @@
 name: Update stock history
+
 on:
   workflow_dispatch:
   schedule:
-    - cron: '15 23 * * 1-5'
+    - cron: "0 6 * * *"
+
 permissions:
   contents: write
+
 jobs:
-  update:
+  update-history:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - run: node scripts/update-history.mjs
-      - name: Commit updated history
+          node-version: "20"
+
+      - name: Update history
+        run: node scripts/update-history.js
+
+      - name: Commit history
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
           git add data/history.json
           git commit -m "Update stock history" || echo "No changes"
           git push
