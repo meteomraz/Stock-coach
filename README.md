@@ -1,36 +1,46 @@
-# Stock Coach Pro v4
+# Stock Coach Pro v5
 
-## Co je nové
-- Roční denní historie se bere ze Stooq, bez API klíče.
-- Aktuální ceny se berou z Finnhub Quote API.
-- API key lze dát do `config.json`, takže jej po každé nové verzi nemusíš znovu zadávat.
-- Historie se ukládá do `data/history.json`.
-- Přidán GitHub Action, který může historii aktualizovat automaticky.
+## Oprava oproti v4
+`data/history.json` byl záměrně prázdný startovací soubor. Ve v5 aplikace umí:
 
-## Nasazení na GitHub Pages
-1. Nahraj všechny soubory do rootu repozitáře.
-2. V `config.json` vlož svůj Finnhub API key:
-   ```json
-   {
-     "finnhubApiKey": "tvuj_klic",
-     "refreshSeconds": 60,
-     "historySource": "stooq",
-     "historyDays": 365
-   }
-   ```
-3. GitHub → Settings → Pages → Deploy from branch → main / root.
+- načíst historii přes Stooq,
+- pokud Stooq selže, zkusí Yahoo Chart API,
+- uložit historii do `localStorage`, takže po refreshi stránky nezmizí,
+- exportovat `history.json`, který nahraješ do `data/history.json`,
+- aktualizovat `data/history.json` přes GitHub Action.
 
-## Důležité upozornění k API key
-Statická aplikace na GitHub Pages nedokáže API key bezpečně skrýt. Pokud je repozitář/public Pages veřejný, klíč může být viditelný. Bezpečnější varianta je Cloudflare Worker / Vercel proxy.
+## API key
+Do `config.json` můžeš vložit Finnhub klíč:
 
-## Jak aktualizovat historii do souboru
-### Ručně v aplikaci
-Klikni na „Načíst/obnovit historii“, potom „Export historie JSON“ a stažený soubor nahraj jako `data/history.json`.
+```json
+{
+  "finnhubApiKey": "tvuj_klic",
+  "refreshSeconds": 60,
+  "historySource": "stooq-yahoo",
+  "historyDays": 365
+}
+```
 
-### Automaticky přes GitHub Actions
-Soubor `.github/workflows/update-history.yml` spouští `scripts/update-history.mjs` každý pracovní den večer a zapisuje nové `data/history.json`.
+Pozor: pokud je repozitář veřejný, klíč v `config.json` je viditelný. Bezpečnější řešení je Cloudflare Worker / Vercel proxy.
 
-Pro spuštění ručně: GitHub → Actions → Update stock history → Run workflow.
+## Jak naplnit historii
 
-## Přidání akcie
-V aplikaci zadej symbol bez `.US`, např. `AAPL`, `MSFT`, `GOOGL`. Pro historii se automaticky použije Stooq tvar `aapl.us`.
+### Varianta A: z aplikace
+1. Otevři aplikaci.
+2. Klikni **Načíst/obnovit historii**.
+3. Klikni **Export historie JSON**.
+4. Stažený soubor nahraj do repozitáře jako `data/history.json`.
+
+### Varianta B: GitHub Actions
+1. Nahraj celý projekt na GitHub.
+2. Jdi na **Actions → Update stock history → Run workflow**.
+3. Action stáhne historii a commitne nový `data/history.json`.
+
+## Tickery
+Používej tickery bez `.US`, například:
+
+- NVDA
+- AMD
+- AVGO
+- TSM
+- ASML
