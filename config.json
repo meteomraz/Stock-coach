@@ -1,0 +1,6 @@
+{
+  "finnhubApiKey": "SEM_VLOZ_FINNHUB_API_KEY",
+  "refreshSeconds": 60,
+  "historySource": "stooq",
+  "historyDays": 365
+}

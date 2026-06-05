@@ -3,83 +3,68 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Stock Coach Pro v3</title>
+  <title>Stock Coach Pro</title>
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header class="hero">
     <div>
-      <p class="eyebrow">Stock Coach Pro v3</p>
-      <h1>Polovodiče / AI portfolio</h1>
-      <p class="muted">Aktuální ceny každou minutu, roční historie načítaná postupně a bez tickerů .US.</p>
+      <p class="eyebrow">Stock Coach Pro v4</p>
+      <h1>Polovodiče, portfolio a roční historie</h1>
+      <p class="muted">Aktuální ceny přes Finnhub, roční denní historie ze Stooq nebo z lokálního souboru <code>data/history.json</code>.</p>
     </div>
-    <div class="status" id="status">Připraveno</div>
+    <div class="status" id="status">Startuji…</div>
   </header>
 
-  <main class="shell">
-    <section class="card grid2">
-      <div>
-        <label>Finnhub API key</label>
-        <div class="row">
-          <input id="apiKey" type="password" placeholder="Vlož API key z finnhub.io" />
-          <button id="saveKey">Uložit</button>
-        </div>
-        <small class="muted">Klíč se ukládá jen do localStorage v tomto prohlížeči.</small>
+  <main class="layout">
+    <section class="card">
+      <h2>Nastavení</h2>
+      <div class="grid2">
+        <label>Finnhub API key
+          <input id="apiKey" type="password" placeholder="Načte se z config.json nebo localStorage" />
+        </label>
+        <label>Symbol nové akcie
+          <input id="newSymbol" placeholder="např. AAPL" />
+        </label>
       </div>
-      <div class="actions">
-        <button id="loadDefault">Načíst 20 polovodičů</button>
+      <div class="buttons">
+        <button id="saveKey">Uložit klíč do prohlížeče</button>
+        <button id="addStock">Přidat akcii</button>
         <button id="refreshQuotes">Obnovit ceny</button>
-        <button id="loadAllHistory">Načíst roční historii</button>
-        <button id="exportJson">Export JSON</button>
+        <button id="loadHistory">Načíst/obnovit historii</button>
+        <button id="exportHistory">Export historie JSON</button>
       </div>
+      <p class="small">Pozn.: Web z GitHub Pages neumí sám zapisovat do JSON souboru v repozitáři. Umí ale číst <code>config.json</code> a <code>data/history.json</code>. Historii do souboru může aktualizovat přiložený GitHub Action nebo ruční export.</p>
     </section>
 
     <section class="cards3">
-      <div class="metric"><span>Watchlist</span><strong id="count">0</strong></div>
-      <div class="metric"><span>Top příležitost</span><strong id="topPick">–</strong></div>
-      <div class="metric"><span>Poslední refresh</span><strong id="lastRefresh">–</strong></div>
+      <div class="metric"><span>Akcií</span><strong id="mCount">0</strong></div>
+      <div class="metric"><span>Největší korekce od 52W high</span><strong id="mDip">–</strong></div>
+      <div class="metric"><span>Top momentum 1R</span><strong id="mMomentum">–</strong></div>
     </section>
 
     <section class="card">
-      <h2>Přidat akcii</h2>
-      <div class="formgrid">
-        <input id="newSymbol" placeholder="Ticker např. NVDA, AMD, AVGO" />
-        <input id="newName" placeholder="Název / segment" />
-        <input id="newQty" type="number" min="0" step="0.0001" placeholder="Kusů" />
-        <input id="newBuy" type="number" min="0" step="0.01" placeholder="Nákupní cena" />
-        <button id="addStock">Přidat</button>
-      </div>
-      <small class="muted">Ticker se automaticky převede na formát bez .US, protože Finnhub pro US akcie používá NVDA, AMD, AVGO…</small>
-    </section>
-
-    <section class="card">
-      <h2>Akcie</h2>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Symbol</th><th>Název</th><th>Cena</th><th>Dnes</th><th>1M</th><th>3M</th><th>1R</th><th>Od 52W high</th><th>SMA50/200</th><th>Skóre</th><th>Akce</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
+      <h2>Nákupní příležitosti / vývoje</h2>
+      <div id="opportunities" class="opps">Načti historii.</div>
     </section>
 
     <section class="card">
       <h2>Graf</h2>
-      <p id="chartTitle" class="muted">Klikni na „Graf“ u akcie.</p>
+      <select id="chartSymbol"></select>
       <canvas id="chart" height="120"></canvas>
     </section>
 
-    <section class="card">
-      <h2>Nákupní příležitosti</h2>
-      <div id="opportunities" class="opps"></div>
+    <section class="card wide">
+      <h2>Akcie</h2>
+      <div class="tableWrap">
+        <table>
+          <thead><tr><th>Symbol</th><th>Název</th><th>Cena</th><th>Dnes</th><th>1M</th><th>3M</th><th>1R</th><th>Od 52W high</th><th>SMA50/200</th><th>Skóre</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
     </section>
   </main>
-
-  <footer>Nejde o investiční doporučení. Slouží jako analytický dashboard.</footer>
   <script src="app.js"></script>
 </body>
 </html>
